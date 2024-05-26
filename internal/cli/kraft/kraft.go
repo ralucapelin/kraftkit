@@ -49,6 +49,7 @@ import (
 	"kraftkit.sh/internal/cli/kraft/x"
 
 	// Additional initializers
+	_ "kraftkit.sh/ami"
 	_ "kraftkit.sh/manifest"
 	_ "kraftkit.sh/oci"
 )

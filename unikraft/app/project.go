@@ -61,9 +61,10 @@ func NewProjectFromOptions(ctx context.Context, opts ...ProjectOption) (Applicat
 		return nil, err
 	}
 
+	log.G(ctx).Trace("NEW PROJ")
 	absWorkdir, err := filepath.Abs(workdir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("here 1: %v", err)
 	}
 
 	if popts.name != "" {
@@ -189,6 +190,8 @@ func NewProjectFromOptions(ctx context.Context, opts ...ProjectOption) (Applicat
 			return nil, err
 		}
 	}
+
+	log.G(ctx).Trace("here 10")
 
 	return project, nil
 }

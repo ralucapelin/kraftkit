@@ -7,6 +7,7 @@ package pkg
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
@@ -31,7 +32,7 @@ func (opts *PkgOptions) initProject(ctx context.Context) error {
 	// Interpret the project directory
 	opts.Project, err = app.NewProjectFromOptions(ctx, popts...)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failing in utils %s", popts)
 	}
 
 	return nil

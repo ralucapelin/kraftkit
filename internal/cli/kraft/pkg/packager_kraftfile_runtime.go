@@ -106,6 +106,8 @@ func (p *packagerKraftfileRuntime) Pack(ctx context.Context, opts *PkgOptions, a
 
 		opts.Platform = targ.Platform().Name()
 		opts.Architecture = targ.Architecture().Name()
+
+		log.G(ctx).Trace("here: %s - %s", opts.Platform, opts.Architecture)
 	}
 
 	treemodel, err := processtree.NewProcessTree(
@@ -154,6 +156,25 @@ func (p *packagerKraftfileRuntime) Pack(ctx context.Context, opts *PkgOptions, a
 
 	if err := treemodel.Start(); err != nil {
 		return nil, err
+	}
+
+	if opts.pm.Format() == "ami" {
+		var result []pack.Package
+		popts := append(opts.packopts,
+			packmanager.PackArgs(args...),
+			packmanager.PackInitrd(opts.Rootfs),
+			packmanager.PackKConfig(!opts.NoKConfig),
+			packmanager.PackName(opts.Name),
+			packmanager.PackOutput(opts.Output),
+		)
+		more, err := opts.pm.Pack(ctx, targ, popts...)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, more...)
+
+		return result, nil
 	}
 
 	if len(packs) == 0 {

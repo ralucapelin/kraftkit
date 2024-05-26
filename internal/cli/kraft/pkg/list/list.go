@@ -27,6 +27,10 @@ import (
 	"kraftkit.sh/packmanager"
 	"kraftkit.sh/unikraft"
 	ukarch "kraftkit.sh/unikraft/arch"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 type ListOptions struct {
@@ -91,6 +95,38 @@ func (opts *ListOptions) Pre(cmd *cobra.Command, _ []string) error {
 	cmd.SetContext(ctx)
 
 	return nil
+}
+
+func ListAMIs() {
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+	// Create an EC2 service client
+	svc := ec2.New(sess)
+
+	// DescribeImages input
+	input := &ec2.DescribeImagesInput{
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("tag-key"),
+				Values: []*string{aws.String("amibuilder*")},
+			},
+		},
+	}
+
+	// Call the DescribeImages operation
+	result, err := svc.DescribeImages(input)
+	if err != nil {
+		fmt.Errorf("failed to describe images, %v", err)
+	}
+
+	// Print the AMI IDs and their respective tag keys
+	for _, image := range result.Images {
+		fmt.Printf("Image ID: %s\n", *image.ImageId)
+		for _, tag := range image.Tags {
+			fmt.Printf("  Tag Key: %s, Tag Value: %s\n", *tag.Key, *tag.Value)
+		}
+	}
 }
 
 func (opts *ListOptions) Run(ctx context.Context, args []string) error {

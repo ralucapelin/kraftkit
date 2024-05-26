@@ -35,10 +35,11 @@ func (p *packagerKraftfileUnikraft) String() string {
 func (p *packagerKraftfileUnikraft) Packagable(ctx context.Context, opts *PkgOptions, args ...string) (bool, error) {
 	if opts.Project == nil {
 		if err := opts.initProject(ctx); err != nil {
-			return false, err
+			return false, fmt.Errorf("Failing here")
 		}
 	}
 
+	log.G(ctx).Trace("HEREEE")
 	if opts.Project.Unikraft(ctx) == nil {
 		return false, fmt.Errorf("cannot package without unikraft core specification")
 	}

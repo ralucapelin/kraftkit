@@ -9,6 +9,7 @@ package bootstrap
 import (
 	"context"
 
+	"kraftkit.sh/ami"
 	"kraftkit.sh/api"
 	"kraftkit.sh/machine/qemu"
 	"kraftkit.sh/manifest"
@@ -40,6 +41,7 @@ func registerSchemes() error {
 
 func registerPackageManagers(ctx context.Context) error {
 	managerConstructors := []func(u *packmanager.UmbrellaManager) error{
+		ami.RegisterPackageManager(),
 		oci.RegisterPackageManager(),
 		manifest.RegisterPackageManager(),
 	}

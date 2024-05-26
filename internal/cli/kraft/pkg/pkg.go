@@ -166,6 +166,7 @@ func Pkg(ctx context.Context, opts *PkgOptions, args ...string) ([]pack.Package,
 		)
 	}
 
+	log.G(ctx).Trace("Here")
 	var pkgr packager
 
 	packagers := packagers()
@@ -191,6 +192,7 @@ func Pkg(ctx context.Context, opts *PkgOptions, args ...string) ([]pack.Package,
 	}
 
 	if pkgr == nil {
+		log.G(ctx).Trace("Here")
 		return nil, fmt.Errorf("could not determine what or how to package from the given context")
 	}
 
