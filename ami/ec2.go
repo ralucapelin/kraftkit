@@ -39,7 +39,7 @@ sudo bash -c 'chmod +x /home/ec2-user/amibuilderd'`
 
 	fmt.Println("name: " + *name)
 
-	instanceProfile := CreateInstanceProfile("amibuilder-profile-test3")
+	instanceProfile := CreateInstanceProfile("amibuilder-profile-test6")
 
 	time.Sleep(5 * time.Second)
 

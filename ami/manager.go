@@ -54,8 +54,8 @@ func (manager *amiManager) Update(ctx context.Context) error {
 	//createS3Bucket("kraftkit")
 	//CreateVMImportRole("kraftkit")
 	//time.Sleep(10 * time.Second)
-	//fmt.Println(exportImageToS3("ami-07b96fdece051edd9", "kraftkit"))
-	checkExportTaskStatus("export-ami-0f58bb73ba9ec739b")
+	fmt.Println(exportImageToS3("ami-05eeae2773a3cfa38", "kraftkit"))
+	//checkExportTaskStatus("export-ami-0f58bb73ba9ec739b")
 	//fmt.Println("Created role")
 	return nil
 }
@@ -84,17 +84,17 @@ func (manager *amiManager) Pack(ctx context.Context, entity component.Component,
 		return []pack.Package{}, err
 	}
 
-	// name := "test"
-	// value := "test"
+	name := "test"
+	value := "test"
 
-	// var result, errEC2 = MakeInstance(&name, &value)
-	// fmt.Println(result)
-	// if errEC2 != nil {
-	// 	fmt.Println("Error when launching EC2 instance")
-	// }
+	var result, errEC2 = MakeInstance(&name, &value)
+	fmt.Println(result)
+	if errEC2 != nil {
+		fmt.Println("Error when launching EC2 instance")
+	}
 
-	var queueURLs = CreateQueues()
-	fmt.Println(queueURLs)
+	//var queueURLs = CreateQueues()
+	//fmt.Println(queueURLs)
 	//time.Sleep(1000 * time.Millisecond)
 
 	//DeleteQueues(queueURLs)

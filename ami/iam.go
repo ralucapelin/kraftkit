@@ -78,6 +78,7 @@ func AddPolicies() {
 					"ec2:CreateSnapshot",
 					"ec2:DescribeImages",
 					"ec2:RegisterImage",
+					"ec2:ExportImage",
 					"ec2:DeregisterImage",
 					"ec2:DeleteSnapshot",
 					"ec2:RunInstances",
