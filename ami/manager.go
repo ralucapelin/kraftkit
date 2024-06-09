@@ -7,10 +7,15 @@ package ami
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
+	"time"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"kraftkit.sh/config"
 	"kraftkit.sh/internal/set"
 	"kraftkit.sh/log"
@@ -54,9 +59,11 @@ func (manager *amiManager) Update(ctx context.Context) error {
 	//createS3Bucket("kraftkit")
 	//CreateVMImportRole("kraftkit")
 	//time.Sleep(10 * time.Second)
-	fmt.Println(exportImageToS3("ami-05eeae2773a3cfa38", "kraftkit"))
+	//fmt.Println(exportImageToS3("ami-0afd61ac4b95bafea", "kraftkit"))
 	//checkExportTaskStatus("export-ami-0f58bb73ba9ec739b")
 	//fmt.Println("Created role")
+	getImage("unikraft.org/helloworld:latest")
+
 	return nil
 }
 
@@ -67,10 +74,96 @@ func (s MyString) String() string {
 	return string(s)
 }
 
+// parseOSAndArch parses a string in the format "OS: <os>, Architecture: <arch>"
+// and returns the os and arch as separate strings.
+func parseOSAndArch(input string) (string, string, error) {
+	// Split the input string by comma
+	parts := strings.Split(input, ",")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid input format")
+	}
+
+	// Extract the OS part
+	osPart := strings.TrimSpace(parts[0])
+	if !strings.HasPrefix(osPart, "OS: ") {
+		return "", "", fmt.Errorf("invalid OS format")
+	}
+	os := strings.TrimPrefix(osPart, "OS: ")
+
+	// Extract the Architecture part
+	archPart := strings.TrimSpace(parts[1])
+	if !strings.HasPrefix(archPart, "Architecture: ") {
+		return "", "", fmt.Errorf("invalid Architecture format")
+	}
+	arch := strings.TrimPrefix(archPart, "Architecture: ")
+
+	return os, arch, nil
+}
+
+func getImage(ref string) []MyString {
+	img, _ := name.ParseReference("index.unikraft.io/" + ref)
+	optAuth := remote.WithAuthFromKeychain(authn.DefaultKeychain)
+	desc, err := remote.Get(img, optAuth)
+	if err != nil {
+		fmt.Errorf("obtaining remote image descriptor: %w", err)
+		return nil
+	}
+
+	var platformOptions []MyString
+	// Check if the descriptor references an index (manifest list) or a single image
+	switch desc.MediaType {
+	case ocispec.MediaTypeImageIndex:
+		// Fetch the image index
+		index, err := desc.ImageIndex()
+		if err != nil {
+			fmt.Errorf("Failed to get image index: %v", err)
+		}
+
+		// Get the index manifest
+		indexManifest, err := index.IndexManifest()
+		if err != nil {
+			fmt.Errorf("Failed to get index manifest: %v", err)
+		}
+
+		// Iterate over the manifests and print platform details
+		for _, manifest := range indexManifest.Manifests {
+			if manifest.Platform != nil {
+				platformOptions = append(platformOptions, MyString(fmt.Sprintf("OS: %s, Architecture: %s\n", manifest.Platform.OS, manifest.Platform.Architecture)))
+				fmt.Printf("OS: %s, Architecture: %s\n", manifest.Platform.OS, manifest.Platform.Architecture)
+			} else {
+				fmt.Println("Platform information not available for this manifest")
+			}
+		}
+		return platformOptions
+
+	case ocispec.MediaTypeImageManifest:
+		// Single manifest, handle it accordingly
+		fmt.Println("Single manifest found, no multi-platform details.")
+		img, err := desc.Image()
+		if err != nil {
+			fmt.Errorf("Failed to get image: %v", err)
+		}
+		cfg, err := img.ConfigFile()
+		if err != nil {
+			fmt.Errorf("Failed to get image config file: %v", err)
+		}
+		platform := cfg.OS + "/" + cfg.Architecture
+		if cfg.Variant != "" {
+			platform += "/" + cfg.Variant
+		}
+		fmt.Printf("OS: %s, Architecture: %s, Variant: %s\n", cfg.OS, cfg.Architecture, cfg.Variant)
+		return platformOptions
+
+	default:
+		fmt.Printf("Unsupported media type: %s\n", desc.MediaType)
+		return platformOptions
+	}
+}
+
 // Pack implements packmanager.PackageManager
 func (manager *amiManager) Pack(ctx context.Context, entity component.Component, opts ...packmanager.PackOption) ([]pack.Package, error) {
 	options := []MyString{"I want to configure IAM policies by myself", "I want IAM policies to be configured automatically", "Exit"}
-	choice, err := selection.Select[MyString]("multiple runnable contexts discovered: how would you like to proceed?", options...)
+	choice, err := selection.Select[MyString]("Configuring necessary IAM policies: how would you like to proceed?", options...)
 
 	if choice.String() == (&options[0]).String() {
 		log.G(ctx).Trace("I want to configure IAM policies")
@@ -84,24 +177,44 @@ func (manager *amiManager) Pack(ctx context.Context, entity component.Component,
 		return []pack.Package{}, err
 	}
 
-	name := "test"
-	value := "test"
+	var queueURLs = CreateQueues()
+	fmt.Println(queueURLs)
+	time.Sleep(5 * time.Second)
+	popts := packmanager.NewPackOptions()
+	for _, opt := range opts {
+		opt(popts)
+	}
+	name := popts.Name()
+	fmt.Println(name)
 
-	var result, errEC2 = MakeInstance(&name, &value)
+	options = getImage(name)
+	choice, err = selection.Select[MyString]("Choose the platform for your image:", options...)
+
+	os, arch, err := parseOSAndArch(choice.String())
+
+	value := "my-ami"
+	instanceProfileName := "kraftkit-role"
+
+	var result, errEC2 = MakeInstance(&name, &value, instanceProfileName)
 	fmt.Println(result)
 	if errEC2 != nil {
 		fmt.Println("Error when launching EC2 instance")
 	}
+	fmt.Println("successfully created instance")
+	time.Sleep(10 * time.Second)
+	fmt.Println("sending build order...")
+	SendBuildOrder(name, os, arch)
+	fmt.Println("building AMI...")
+	time.Sleep(45 * time.Second)
+	ReceiveResult()
 
-	//var queueURLs = CreateQueues()
-	//fmt.Println(queueURLs)
-	//time.Sleep(1000 * time.Millisecond)
+	time.Sleep(5000 * time.Millisecond)
+	DeleteInstanceProfileAndRole(instanceProfileName)
+	DeleteQueues(queueURLs)
 
-	//DeleteQueues(queueURLs)
+	var instanceID = *result.Instances[0].InstanceId
 
-	//var instanceID = *result.Instances[0].InstanceId
-
-	//TerminateInstance(instanceID)
+	TerminateInstance(instanceID)
 	return []pack.Package{}, err
 }
 

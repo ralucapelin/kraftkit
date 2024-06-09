@@ -13,7 +13,7 @@ import (
 )
 
 // MakeInstance creates an EC2 instance with the specified user data script
-func MakeInstance(name, value *string) (*ec2.RunInstancesOutput, error) {
+func MakeInstance(name, value *string, instanceProfileName string) (*ec2.RunInstancesOutput, error) {
 	// Load the default configuration
 	cfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
@@ -23,6 +23,7 @@ func MakeInstance(name, value *string) (*ec2.RunInstancesOutput, error) {
 	// Create an EC2 service client
 	svc := ec2.NewFromConfig(cfg)
 
+	arnPrefix := "arn:aws:sqs:" + GetAccountRegion() + ":" + GetAccountID() + ":"
 	userDataScript := `#!/bin/bash
 yum update -y
 yum install -y wget tar
@@ -35,11 +36,11 @@ source /etc/profile
 source ~/.bashrc
 sudo bash -c 'echo ` + *name + ` > /home/ec2-user/image-name'
 sudo bash -c 'curl -o /home/ec2-user/amibuilderd  https://raw.githubusercontent.com/ralucapelin/kraftkit/staging/amibuilder/amibuilderd'
-sudo bash -c 'chmod +x /home/ec2-user/amibuilderd'`
-
-	fmt.Println("name: " + *name)
-
-	instanceProfile := CreateInstanceProfile("amibuilder-profile-test6")
+sudo bash -c 'chmod +x /home/ec2-user/amibuilderd'
+sleep 10
+sudo bash -c './home/ec2-user/amibuilderd -results-queue "` + arnPrefix + `Results" -orders-queue "` + arnPrefix + `Orders"'`
+	fmt.Println(`./home/ec2-user/amibuilderd -results-queue "` + arnPrefix + `Results" -orders-queue "` + arnPrefix + `Orders"`)
+	instanceProfile := CreateInstanceProfile(instanceProfileName)
 
 	time.Sleep(5 * time.Second)
 
@@ -250,13 +251,13 @@ func isValidAmiID(amiID string) (bool, error) {
 	}
 
 	// Create an EC2 service client
-	svc := ec2.NewFromConfig(cfg)
+	ec2Client := ec2.NewFromConfig(cfg)
 
 	input := &ec2.DescribeImagesInput{
 		ImageIds: []string{amiID},
 	}
 
-	result, err := svc.DescribeImages(context.TODO(), input)
+	result, err := ec2Client.DescribeImages(context.TODO(), input)
 	if err != nil {
 		return false, err
 	}
@@ -307,7 +308,7 @@ func exportImageToS3(amiID, bucketName string) string {
 		S3ExportLocation: &types.ExportTaskS3LocationRequest{
 			S3Bucket: &bucketName,
 		},
-		DiskImageFormat: types.DiskImageFormatVmdk,
+		DiskImageFormat: types.DiskImageFormatRaw,
 	}
 
 	fmt.Println("HEREEE")

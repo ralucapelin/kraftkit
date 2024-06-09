@@ -12,6 +12,15 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 )
 
+func GetAccountRegion() string {
+	cfg, err := awsconfig.LoadDefaultConfig(context.Background())
+	if err != nil {
+		fmt.Println("Error loading AWS SDK configuration:", err)
+		return ""
+	}
+	return cfg.Region
+}
+
 func GetAccountID() string {
 	// Load AWS SDK configuration from environment variables, shared config, or AWS config file
 	cfg, err := awsconfig.LoadDefaultConfig(context.Background())
@@ -87,7 +96,11 @@ func AddPolicies() {
 					"iam:PassRole",
 					"iam:CreateRole",
 					"iam:CreateInstanceProfile",
-					"iam:AddRoleToInstanceProfile"
+					"iam:AddRoleToInstanceProfile",
+					"iam:DeleteInstanceProfile",
+					"iam:DeleteRole",
+					"iam:DeleteRolePolicy",
+					"iam:RemoveRoleFromInstanceProfile"
 				],
 				"Resource": "*"
 			},
@@ -201,8 +214,8 @@ func AttachPolicyToRole(roleName string, policyName string, policyDocument strin
 
 }
 
-func AttachAMIBuilderPolicyToEC2Role() string {
-	var roleName string = CreateRole("amibuilder-role")
+func AttachAMIBuilderPolicyToEC2Role(name string) string {
+	var roleName string = CreateRole(name)
 	policyDocument := `{
 		"Version": "2012-10-17",
 		"Statement": [
@@ -272,11 +285,79 @@ func CreateInstanceProfile(instanceProfileName string) string {
 	// Add the role to the instance profile
 	_, err = iamSvc.AddRoleToInstanceProfile(context.TODO(), &iam.AddRoleToInstanceProfileInput{
 		InstanceProfileName: aws.String(instanceProfileName),
-		RoleName:            aws.String(AttachAMIBuilderPolicyToEC2Role()),
+		RoleName:            aws.String(AttachAMIBuilderPolicyToEC2Role(instanceProfileName)),
 	})
 	if err != nil {
 		log.Fatalf("unable to add role to instance profile, %v", err)
 	}
 	fmt.Printf("Added role to instance profile: %s\n", instanceProfileName)
 	return instanceProfileName
+}
+
+func DeleteInstanceProfileAndRole(name string) {
+	// Load AWS SDK configuration from environment variables, shared config, or AWS config file
+	cfg, err := awsconfig.LoadDefaultConfig(context.Background())
+	if err != nil {
+		fmt.Println("Error loading AWS SDK configuration:", err)
+		return
+	}
+
+	// Create an IAM client
+	iamSvc := iam.NewFromConfig(cfg)
+
+	// Detach each role from the instance profile
+
+	_, err = iamSvc.RemoveRoleFromInstanceProfile(context.TODO(), &iam.RemoveRoleFromInstanceProfileInput{
+		InstanceProfileName: aws.String(name),
+		RoleName:            aws.String(name),
+	})
+	if err != nil {
+		fmt.Println("Error detaching role from instance profile:", err)
+		return
+	}
+	fmt.Println("Role detached from instance profile")
+
+	// List attached policies
+	policiesOutput, err := iamSvc.ListRolePolicies(context.TODO(), &iam.ListRolePoliciesInput{
+		RoleName: aws.String(name),
+	})
+	if err != nil {
+		fmt.Println("Error listing attached role policies:", err)
+		return
+	}
+	fmt.Printf("poliies: %s\n", policiesOutput.PolicyNames)
+
+	// Detach each policy from the IAM role
+	for _, policy := range policiesOutput.PolicyNames {
+		_, err := iamSvc.DeleteRolePolicy(context.TODO(), &iam.DeleteRolePolicyInput{
+			RoleName:   aws.String(name),
+			PolicyName: aws.String(policy),
+		})
+		if err != nil {
+			fmt.Println("Error detaching policy from IAM role:", err)
+			return
+		}
+		fmt.Println("Policy detached from IAM role:", policy)
+	}
+
+	time.Sleep(3 * time.Second)
+	_, err = iamSvc.DeleteRole(context.TODO(), &iam.DeleteRoleInput{
+		RoleName: aws.String(name),
+	})
+	if err != nil {
+		fmt.Println("Error deleting IAM role:", err)
+		return
+	}
+
+	fmt.Println("IAM role deleted successfully")
+	// Delete the instance profile
+	_, err = iamSvc.DeleteInstanceProfile(context.TODO(), &iam.DeleteInstanceProfileInput{
+		InstanceProfileName: aws.String(name),
+	})
+	if err != nil {
+		fmt.Println("Error deleting instance profile:", err)
+		return
+	}
+	fmt.Println("Successfully deleted instance profile")
+
 }

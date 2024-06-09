@@ -2,7 +2,9 @@ package ami
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -10,6 +12,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/aws-sdk-go/aws"
 )
+
+type Message struct {
+	Image string `json:"image"`
+	OS    string `json:"os"`
+	Arch  string `json:"arch"`
+}
 
 func CreateQueues() []string {
 	// Load AWS SDK configuration from environment variables, shared config, or AWS config file
@@ -77,5 +85,73 @@ func DeleteQueues(queueURLs []string) {
 		} else {
 			fmt.Printf("Deleted queue %s\n", queueARN)
 		}
+	}
+}
+
+func SendBuildOrder(name string, os string, arch string) {
+	cfg, err := awsconfig.LoadDefaultConfig(context.Background())
+	if err != nil {
+		fmt.Errorf("unable to load SDK config, %v", err)
+	}
+
+	// Create an SQS client
+	client := sqs.NewFromConfig(cfg)
+	message := Message{
+		Image: "index.unikraft.io/" + name,
+		OS:    os,
+		Arch:  arch,
+	}
+	messageBody, err := json.Marshal(message)
+	if err != nil {
+		log.Fatalf("unable to marshal message, %v", err)
+	}
+
+	// Define the input for the SendMessage API call
+	input := &sqs.SendMessageInput{
+		QueueUrl:    aws.String("https://sqs." + GetAccountRegion() + ".amazonaws.com/" + GetAccountID() + "/Orders"),
+		MessageBody: aws.String(string(messageBody)),
+	}
+
+	// Send the message
+	result, err := client.SendMessage(context.TODO(), input)
+	if err != nil {
+		log.Fatalf("unable to send message, %v", err)
+	}
+	fmt.Printf("Message ID: %s\n", *result.MessageId)
+}
+
+func ReceiveResult() {
+	cfg, err := awsconfig.LoadDefaultConfig(context.Background())
+	if err != nil {
+		fmt.Errorf("unable to load SDK config, %v", err)
+	}
+
+	// Create an SQS client
+	client := sqs.NewFromConfig(cfg)
+
+	// Define the input for the ReceiveMessage API call
+	input := &sqs.ReceiveMessageInput{
+		QueueUrl:            aws.String("https://sqs." + GetAccountRegion() + ".amazonaws.com/" + GetAccountID() + "/Results"),
+		WaitTimeSeconds:     20,
+		MaxNumberOfMessages: 10, // Adjust the number of messages to receive at a time as needed
+	}
+
+	// Receive messages
+	result, err := client.ReceiveMessage(context.TODO(), input)
+	if err != nil {
+		log.Fatalf("unable to receive messages, %v", err)
+	}
+
+	// Check if messages are received
+	if len(result.Messages) == 0 {
+		fmt.Println("No messages received")
+		return
+	}
+
+	// Print received messages
+	for _, message := range result.Messages {
+		fmt.Printf("Message ID: %s\n", *message.MessageId)
+		fmt.Printf("Message Body: %s\n", *message.Body)
+		// Handle the message as needed (e.g., delete it after processing)
 	}
 }
