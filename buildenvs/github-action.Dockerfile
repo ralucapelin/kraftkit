@@ -2,10 +2,10 @@
 # Copyright (c) 2022, Unikraft GmbH and The KraftKit Authors.
 # Licensed under the BSD-3-Clause License (the "License").
 # You may not use this file except in compliance with the License.
-ARG GO_VERSION=1.22.0
-ARG DEBIAN_VERSION=bookworm-20230725
+ARG GO_VERSION=1.22.3
+ARG DEBIAN_VERSION=bookworm-20240513
 ARG KRAFTKIT_VERSION=latest
-ARG QEMU_VERSION=8.2.0
+ARG QEMU_VERSION=8.2.4
 ARG REGISTRY=kraftkit.sh
 
 FROM golang:${GO_VERSION}-bullseye AS build
@@ -113,7 +113,16 @@ RUN set -xe; \
     chown -R runner:runner /github/workspace; \
     usermod -aG 1000 runner; \
     usermod -aG 1001 runner; \
-    usermod -aG 1002 runner;
+    usermod -aG 1002 runner; \
+    mkdir -p /run/user/1000; \
+    mkdir -p /run/user/1001; \
+    mkdir -p /run/user/1002; \
+    chown -R runner:arunner /run/user/1000; \
+    chown -R runner:brunner /run/user/1001; \
+    chown -R runner:crunner /run/user/1002; \
+    chmod 0700 /run/user/1000; \
+    chmod 0700 /run/user/1001; \
+    chmod 0700 /run/user/1002;
 USER runner
 
 ENV CLICOLOR_FORCE=1
