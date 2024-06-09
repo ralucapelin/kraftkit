@@ -205,16 +205,16 @@ func (manager *amiManager) Pack(ctx context.Context, entity component.Component,
 	fmt.Println("sending build order...")
 	SendBuildOrder(name, os, arch)
 	fmt.Println("building AMI...")
-	time.Sleep(45 * time.Second)
+	time.Sleep(90 * time.Second)
 	ReceiveResult()
 
 	time.Sleep(5000 * time.Millisecond)
-	DeleteInstanceProfileAndRole(instanceProfileName)
-	DeleteQueues(queueURLs)
+	//DeleteInstanceProfileAndRole(instanceProfileName)
+	//DeleteQueues(queueURLs)
 
-	var instanceID = *result.Instances[0].InstanceId
+	// var instanceID = *result.Instances[0].InstanceId
 
-	TerminateInstance(instanceID)
+	// TerminateInstance(instanceID)
 	return []pack.Package{}, err
 }
 
