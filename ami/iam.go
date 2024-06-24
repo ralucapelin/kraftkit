@@ -149,7 +149,35 @@ func AddPolicies() {
 
 	fmt.Println("Policy added to IAM user successfully.")
 	fmt.Println("Waiting for policies to propagate...")
-	time.Sleep(10 * time.Second)
+
+	maxRetries := 10
+	retryInterval := 5 * time.Second
+
+	for i := 0; i < maxRetries; i++ {
+		time.Sleep(retryInterval)
+
+		// Check if the policy is attached
+		listPolicyInput := &iam.ListUserPoliciesInput{
+			UserName: aws.String(userName),
+		}
+
+		policies, err := client.ListUserPolicies(context.TODO(), listPolicyInput)
+		if err != nil {
+			log.Printf("failed to list user policies, %v", err)
+			continue
+		}
+
+		for _, p := range policies.PolicyNames {
+			if p == policyName {
+				fmt.Println("User policy is now attached")
+				return
+			}
+		}
+
+		fmt.Println("Waiting for user policy to be attached...")
+	}
+
+	log.Fatalf("user policy attachment timed out")
 }
 
 func CreateRole(roleName string) string {
@@ -291,6 +319,22 @@ func CreateInstanceProfile(instanceProfileName string) string {
 		log.Fatalf("unable to add role to instance profile, %v", err)
 	}
 	fmt.Printf("Added role to instance profile: %s\n", instanceProfileName)
+	maxRetries := 10
+	retryInterval := 5 * time.Second
+	for i := 0; i < maxRetries; i++ {
+		time.Sleep(retryInterval)
+		// Check if the instance profile exists
+		_, err := iamSvc.GetInstanceProfile(context.TODO(), &iam.GetInstanceProfileInput{
+			InstanceProfileName: aws.String(instanceProfileName),
+		})
+		if err == nil {
+			return instanceProfileName
+		}
+		// If the instance profile does not exist, wait for the retry interval before retrying
+		fmt.Println("Waiting for instance profile to be available...")
+	}
+
+	fmt.Println("Instance profile is now available")
 	return instanceProfileName
 }
 
@@ -340,24 +384,63 @@ func DeleteInstanceProfileAndRole(name string) {
 		fmt.Println("Policy detached from IAM role:", policy)
 	}
 
-	time.Sleep(3 * time.Second)
-	_, err = iamSvc.DeleteRole(context.TODO(), &iam.DeleteRoleInput{
-		RoleName: aws.String(name),
-	})
-	if err != nil {
-		fmt.Println("Error deleting IAM role:", err)
-		return
-	}
+	maxRetries := 10
+	retryInterval := 1500 * time.Millisecond
 
-	fmt.Println("IAM role deleted successfully")
-	// Delete the instance profile
-	_, err = iamSvc.DeleteInstanceProfile(context.TODO(), &iam.DeleteInstanceProfileInput{
-		InstanceProfileName: aws.String(name),
-	})
-	if err != nil {
-		fmt.Println("Error deleting instance profile:", err)
-		return
+	for i := 0; i < maxRetries; i++ {
+		time.Sleep(retryInterval)
+
+		// Check if the policy is deleted
+		listPolicyInput := &iam.ListRolePoliciesInput{
+			RoleName: aws.String(name),
+		}
+
+		policies, err := iamSvc.ListRolePolicies(context.TODO(), listPolicyInput)
+		if err != nil {
+			log.Printf("failed to list role policies, %v", err)
+			continue
+		}
+
+		policyDeleted := true
+		for _, p := range policies.PolicyNames {
+			contains := func(arr []string, str string) bool {
+				for _, s := range arr {
+					if s == str {
+						return true
+					}
+				}
+				return false
+			}(policiesOutput.PolicyNames, p)
+			if contains {
+				policyDeleted = false
+				break
+			}
+		}
+
+		if policyDeleted {
+			fmt.Println("Role policy is now deleted")
+			_, err = iamSvc.DeleteRole(context.TODO(), &iam.DeleteRoleInput{
+				RoleName: aws.String(name),
+			})
+			if err != nil {
+				fmt.Println("Error deleting IAM role:", err)
+				return
+			}
+
+			fmt.Println("IAM role deleted successfully")
+			// Delete the instance profile
+			_, err = iamSvc.DeleteInstanceProfile(context.TODO(), &iam.DeleteInstanceProfileInput{
+				InstanceProfileName: aws.String(name),
+			})
+			if err != nil {
+				fmt.Println("Error deleting instance profile:", err)
+				return
+			}
+			fmt.Println("Successfully deleted instance profile")
+			return
+		}
+
+		fmt.Println("Waiting for role policy to be deleted...")
 	}
-	fmt.Println("Successfully deleted instance profile")
 
 }

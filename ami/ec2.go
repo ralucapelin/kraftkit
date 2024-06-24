@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -37,12 +36,9 @@ source ~/.bashrc
 sudo bash -c 'echo ` + *name + ` > /home/ec2-user/image-name'
 sudo bash -c 'curl -o /home/ec2-user/amibuilderd  https://raw.githubusercontent.com/ralucapelin/kraftkit/staging/amibuilder/amibuilderd'
 sudo bash -c 'chmod +x /home/ec2-user/amibuilderd'
-sleep 10
 sudo bash -c './home/ec2-user/amibuilderd -results-queue "` + arnPrefix + `Results" -orders-queue "` + arnPrefix + `Orders"'`
 	fmt.Println(`./home/ec2-user/amibuilderd -results-queue "` + arnPrefix + `Results" -orders-queue "` + arnPrefix + `Orders"`)
 	instanceProfile := CreateInstanceProfile(instanceProfileName)
-
-	time.Sleep(5 * time.Second)
 
 	encodedUserData := base64.StdEncoding.EncodeToString([]byte(userDataScript))
 	runInstancesInput := &ec2.RunInstancesInput{
@@ -196,6 +192,7 @@ func GetAMIIDByName(amiName string) *string {
 		return nil
 	}
 
+	fmt.Println("getting AMI")
 	// Create an EC2 service client
 	svc := ec2.NewFromConfig(cfg)
 
@@ -203,7 +200,7 @@ func GetAMIIDByName(amiName string) *string {
 	describeInput := &ec2.DescribeImagesInput{
 		Filters: []types.Filter{
 			{
-				Name:   aws.String("name"),
+				Name:   aws.String("tag:Name"),
 				Values: []string{amiName},
 			},
 		},
@@ -221,6 +218,7 @@ func GetAMIIDByName(amiName string) *string {
 		return nil
 	}
 
+	fmt.Println(describeResult.Images[0].ImageId)
 	// Assume we want to deregister the first AMI found with the specified name
 	return describeResult.Images[0].ImageId
 
@@ -279,7 +277,7 @@ func isValidAmiName(amiName string) (bool, error) {
 	input := &ec2.DescribeImagesInput{
 		Filters: []types.Filter{
 			{
-				Name:   aws.String("name"),
+				Name:   aws.String("tag:Name"),
 				Values: []string{amiName},
 			},
 		},
@@ -294,7 +292,7 @@ func isValidAmiName(amiName string) (bool, error) {
 }
 
 // Export the AMI to S3
-func exportImageToS3(amiID, bucketName string) string {
+func exportImageToS3(amiName, bucketName string) string {
 	// Load the default configuration
 	cfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
@@ -304,11 +302,11 @@ func exportImageToS3(amiID, bucketName string) string {
 	// Create an EC2 service client
 	svc := ec2.NewFromConfig(cfg)
 	exportTaskInput := &ec2.ExportImageInput{
-		ImageId: &amiID,
+		ImageId: GetAMIIDByName(amiName),
 		S3ExportLocation: &types.ExportTaskS3LocationRequest{
 			S3Bucket: &bucketName,
 		},
-		DiskImageFormat: types.DiskImageFormatRaw,
+		DiskImageFormat: types.DiskImageFormatVmdk,
 	}
 
 	fmt.Println("HEREEE")

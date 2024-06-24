@@ -59,11 +59,10 @@ func (manager *amiManager) Update(ctx context.Context) error {
 	//createS3Bucket("kraftkit")
 	//CreateVMImportRole("kraftkit")
 	//time.Sleep(10 * time.Second)
-	//fmt.Println(exportImageToS3("ami-0afd61ac4b95bafea", "kraftkit"))
+	fmt.Println(exportImageToS3("ami-0afd61ac4b95bafea", "kraftkit"))
 	//checkExportTaskStatus("export-ami-0f58bb73ba9ec739b")
 	//fmt.Println("Created role")
-	getImage("unikraft.org/helloworld:latest")
-
+	//DeregisterImageByName("named-ami")
 	return nil
 }
 
@@ -179,7 +178,7 @@ func (manager *amiManager) Pack(ctx context.Context, entity component.Component,
 
 	var queueURLs = CreateQueues()
 	fmt.Println(queueURLs)
-	time.Sleep(5 * time.Second)
+	//time.Sleep(5 * time.Second)
 	popts := packmanager.NewPackOptions()
 	for _, opt := range opts {
 		opt(popts)
@@ -190,31 +189,38 @@ func (manager *amiManager) Pack(ctx context.Context, entity component.Component,
 	options = getImage(name)
 	choice, err = selection.Select[MyString]("Choose the platform for your image:", options...)
 
+	startTime := time.Now()
 	os, arch, err := parseOSAndArch(choice.String())
 
 	value := "my-ami"
 	instanceProfileName := "kraftkit-role"
 
 	var result, errEC2 = MakeInstance(&name, &value, instanceProfileName)
+	duration := time.Since(startTime)
+	fmt.Printf("The function took %s to complete.\n", duration)
 	fmt.Println(result)
 	if errEC2 != nil {
 		fmt.Println("Error when launching EC2 instance")
 	}
 	fmt.Println("successfully created instance")
 	time.Sleep(10 * time.Second)
-	fmt.Println("sending build order...")
+	//	fmt.Println("sending build order...")
 	SendBuildOrder(name, os, arch)
 	fmt.Println("building AMI...")
-	time.Sleep(90 * time.Second)
-	ReceiveResult()
+	time.Sleep(40 * time.Second)
+	amiID, _ := ReceiveResult()
+
+	fmt.Printf("AMI ID: %s\n", amiID)
 
 	time.Sleep(5000 * time.Millisecond)
-	//DeleteInstanceProfileAndRole(instanceProfileName)
-	//DeleteQueues(queueURLs)
+	DeleteInstanceProfileAndRole(instanceProfileName)
+	DeleteQueues(queueURLs)
 
-	// var instanceID = *result.Instances[0].InstanceId
+	var instanceID = *result.Instances[0].InstanceId
 
-	// TerminateInstance(instanceID)
+	TerminateInstance(instanceID)
+	duration = time.Since(startTime)
+	fmt.Printf("The function took %s to complete.\n", duration)
 	return []pack.Package{}, err
 }
 

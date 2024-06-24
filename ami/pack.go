@@ -123,6 +123,14 @@ func (amipack *amiPackage) Columns() []tableprinter.Column {
 
 // Push implements pack.Package
 func (amipack *amiPackage) Push(ctx context.Context, opts ...pack.PushOption) error {
+	bucket := "kraftkit"
+	createS3Bucket(bucket)
+	time.Sleep(3 * time.Second)
+
+	exportImageToS3(amipack.imageRef(), bucket)
+	time.Sleep(3 * time.Second)
+	//deleteS3Bucket(bucket)
+
 	return nil
 }
 
@@ -133,6 +141,7 @@ func (amipack *amiPackage) Unpack(ctx context.Context, dir string) error {
 
 // Pull implements pack.Package
 func (amipack *amiPackage) Pull(ctx context.Context, opts ...pack.PullOption) error {
+	downloadFromS3("kraftkit", *GetAMIIDByName(amipack.imageRef())+".vmdk", ".")
 	return nil
 }
 

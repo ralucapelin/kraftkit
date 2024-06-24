@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
@@ -60,6 +61,25 @@ func CreateQueues() []string {
 			fmt.Println()
 			queueURLS = append(queueURLS, *createQueueOutput.QueueUrl)
 		}
+	}
+	maxRetries := 10
+	retryInterval := 3 * time.Second
+
+	for i := 0; i < maxRetries; i++ {
+		time.Sleep(retryInterval)
+
+		// Check if the queue exists
+		getQueueUrlInput := &sqs.GetQueueUrlInput{
+			QueueName: aws.String("Results"),
+		}
+
+		_, err := sqsClient.GetQueueUrl(context.TODO(), getQueueUrlInput)
+		if err == nil {
+			fmt.Println("Queue is now available")
+			return queueURLS
+		}
+
+		fmt.Println("Waiting for queue to be available...")
 	}
 	return queueURLS
 }
@@ -120,10 +140,30 @@ func SendBuildOrder(name string, os string, arch string) {
 	fmt.Printf("Message ID: %s\n", *result.MessageId)
 }
 
-func ReceiveResult() {
+func extractAmiID(input string) (string, error) {
+	var data map[string]interface{}
+
+	// Unmarshal the JSON string into a map
+	err := json.Unmarshal([]byte(input), &data)
+	if err != nil {
+		return "", err
+	}
+
+	// Navigate the map to get the AMI ID
+	if result, ok := data["result"].(map[string]interface{}); ok {
+		if amiId, ok := result["amiId"].(string); ok {
+			return amiId, nil
+		}
+	}
+
+	return "", fmt.Errorf("AMI ID not found")
+}
+
+func ReceiveResult() (string, error) {
 	cfg, err := awsconfig.LoadDefaultConfig(context.Background())
 	if err != nil {
 		fmt.Errorf("unable to load SDK config, %v", err)
+		return "", nil
 	}
 
 	// Create an SQS client
@@ -131,27 +171,29 @@ func ReceiveResult() {
 
 	// Define the input for the ReceiveMessage API call
 	input := &sqs.ReceiveMessageInput{
-		QueueUrl:            aws.String("https://sqs." + GetAccountRegion() + ".amazonaws.com/" + GetAccountID() + "/Results"),
-		WaitTimeSeconds:     20,
-		MaxNumberOfMessages: 10, // Adjust the number of messages to receive at a time as needed
+		QueueUrl:        aws.String("https://sqs." + GetAccountRegion() + ".amazonaws.com/" + GetAccountID() + "/Results"),
+		WaitTimeSeconds: 20,
+	}
+	maxRetries := 15
+	for i := 0; i < maxRetries; i++ {
+		fmt.Println("Waiting for result...")
+		result, err := client.ReceiveMessage(context.TODO(), input)
+		if err != nil {
+			log.Fatalf("unable to receive messages, %v", err)
+		}
+
+		// Check if messages are received
+		if len(result.Messages) == 0 {
+			fmt.Println("No messages received. Retrying")
+		} else {
+			for _, message := range result.Messages {
+				fmt.Printf("Message ID: %s\n", *message.MessageId)
+				fmt.Printf("Message Body: %s\n", *message.Body)
+				return extractAmiID(*message.Body)
+			}
+		}
+		time.Sleep(1 * time.Second)
 	}
 
-	// Receive messages
-	result, err := client.ReceiveMessage(context.TODO(), input)
-	if err != nil {
-		log.Fatalf("unable to receive messages, %v", err)
-	}
-
-	// Check if messages are received
-	if len(result.Messages) == 0 {
-		fmt.Println("No messages received")
-		return
-	}
-
-	// Print received messages
-	for _, message := range result.Messages {
-		fmt.Printf("Message ID: %s\n", *message.MessageId)
-		fmt.Printf("Message Body: %s\n", *message.Body)
-		// Handle the message as needed (e.g., delete it after processing)
-	}
+	return "", fmt.Errorf("AMI ID not found")
 }
