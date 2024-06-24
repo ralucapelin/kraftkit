@@ -20,6 +20,8 @@ type PackOptions struct {
 	name                             string
 	output                           string
 	mergeStrategy                    MergeStrategy
+	os                               string
+	arch                             string
 }
 
 // NewPackOptions returns an instantiated *NewPackOptions with default
@@ -85,6 +87,14 @@ func (popts *PackOptions) KernelVersion() string {
 // Name returns the name of the package.
 func (popts *PackOptions) Name() string {
 	return popts.name
+}
+
+func (popts *PackOptions) Arch() string {
+	return popts.arch
+}
+
+func (popts *PackOptions) Os() string {
+	return popts.os
 }
 
 // Output returns the location of the package.
@@ -170,6 +180,18 @@ func PackWithKernelVersion(version string) PackOption {
 func PackName(name string) PackOption {
 	return func(popts *PackOptions) {
 		popts.name = name
+	}
+}
+
+func PackArch(arch string) PackOption {
+	return func(popts *PackOptions) {
+		popts.arch = arch
+	}
+}
+
+func PackOs(os string) PackOption {
+	return func(popts *PackOptions) {
+		popts.os = os
 	}
 }
 

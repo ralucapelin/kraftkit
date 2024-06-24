@@ -165,6 +165,8 @@ func (p *packagerKraftfileRuntime) Pack(ctx context.Context, opts *PkgOptions, a
 			packmanager.PackInitrd(opts.Rootfs),
 			packmanager.PackKConfig(!opts.NoKConfig),
 			packmanager.PackName(opts.Name),
+			packmanager.PackArch(opts.Architecture),
+			packmanager.PackOs(opts.Platform),
 			packmanager.PackOutput(opts.Output),
 		)
 		more, err := opts.pm.Pack(ctx, targ, popts...)

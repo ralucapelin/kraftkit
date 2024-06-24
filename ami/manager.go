@@ -187,10 +187,16 @@ func (manager *amiManager) Pack(ctx context.Context, entity component.Component,
 	fmt.Println(name)
 
 	options = getImage(name)
-	choice, err = selection.Select[MyString]("Choose the platform for your image:", options...)
+
+	os := popts.Os()
+	arch := popts.Arch()
+
+	if os == "" || arch == "" {
+		choice, err = selection.Select[MyString]("Choose the platform for your image:", options...)
+		os, arch, err = parseOSAndArch(choice.String())
+	}
 
 	startTime := time.Now()
-	os, arch, err := parseOSAndArch(choice.String())
 
 	value := "my-ami"
 	instanceProfileName := "kraftkit-role"
