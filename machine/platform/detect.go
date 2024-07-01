@@ -16,7 +16,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"kraftkit.sh/config"
 	"kraftkit.sh/internal/set"
@@ -162,35 +161,35 @@ func Detect(ctx context.Context) (Platform, SystemMode, error) {
 		}
 	}
 
-	file = hostDev("kvm")
-	if pathExists(file) {
-		if kvmFile, err := os.Stat(file); err == nil &&
-			kvmFile.Mode()&os.ModeCharDevice != 0 {
-			// Send ioctl for KVM_GET_API_VERSION
-			file, err := os.Open(file)
-			if err != nil {
-				return PlatformUnknown, SystemUnknown, fmt.Errorf("could not open kvm device: %w", err)
-			}
-			defer file.Close()
+	// file = hostDev("kvm")
+	// if pathExists(file) {
+	// 	if kvmFile, err := os.Stat(file); err == nil &&
+	// 		kvmFile.Mode()&os.ModeCharDevice != 0 {
+	// 		// Send ioctl for KVM_GET_API_VERSION
+	// 		file, err := os.Open(file)
+	// 		if err != nil {
+	// 			return PlatformUnknown, SystemUnknown, fmt.Errorf("could not open kvm device: %w", err)
+	// 		}
+	// 		defer file.Close()
 
-			// 0xAE is the magic number for KVM
-			kvmctl := uintptr(0xAE << 8)
-			version, _, err := syscall.Syscall(syscall.SYS_IOCTL, file.Fd(), kvmctl, 0)
-			if err != syscall.Errno(0) {
-				return PlatformUnknown, SystemUnknown, fmt.Errorf("could not send ioctl to kvm device: %w", err)
-			}
+	// 		// 0xAE is the magic number for KVM
+	// 		kvmctl := uintptr(0xAE << 8)
+	// 		version, _, err := syscall.Syscall(syscall.SYS_IOCTL, file.Fd(), kvmctl, 0)
+	// 		if err != syscall.Errno(0) {
+	// 			return PlatformUnknown, SystemUnknown, fmt.Errorf("could not send ioctl to kvm device: %w", err)
+	// 		}
 
-			// 12 is the current version of KVM_GET_API_VERSION
-			// specification says to error if the version is not 12
-			if version != 12 {
-				return PlatformUnknown, SystemUnknown, fmt.Errorf("kvm version too old, or malformed, should be 12, but is %d", version)
-			}
+	// 		// 12 is the current version of KVM_GET_API_VERSION
+	// 		// specification says to error if the version is not 12
+	// 		if version != 12 {
+	// 			return PlatformUnknown, SystemUnknown, fmt.Errorf("kvm version too old, or malformed, should be 12, but is %d", version)
+	// 		}
 
-			return PlatformKVM, SystemHost, nil
-		} else {
-			return PlatformUnknown, SystemUnknown, fmt.Errorf("kvm exists but is not a character device")
-		}
-	}
+	// 		return PlatformKVM, SystemHost, nil
+	// 	} else {
+	// 		return PlatformUnknown, SystemUnknown, fmt.Errorf("kvm exists but is not a character device")
+	// 	}
+	// }
 
 	// Check if any QEMU binaries are installed on the host.  Since we could not
 	// determine if virtualization extensions are possible at this point, at least

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/spf13/cobra"
@@ -120,12 +121,23 @@ func ListAMIs() {
 		fmt.Errorf("failed to describe images, %v", err)
 	}
 
+	fmt.Printf("%-4s %-26s %-8s %-6s %-21s %-8s\n",
+		"TYPE", "NAME", "VERSION", "FORMAT", "ID", "CREATED")
+
 	// Print the AMI IDs and their respective tag keys
 	for _, image := range result.Images {
-		fmt.Printf("Image ID: %s\n", *image.ImageId)
+		version := "latest"
+		name := ""
 		for _, tag := range image.Tags {
-			fmt.Printf("  Tag Key: %s, Tag Value: %s\n", *tag.Key, *tag.Value)
+			if *tag.Key == "amibuilderd.unikraft.io/oci-tag" {
+				version = *tag.Value
+			}
+			if *tag.Key == "Name" {
+				name = strings.TrimSuffix(*tag.Value, ":"+version)
+			}
 		}
+		fmt.Printf("%-4s %-26s %-8s %-6s %-13s %-8s\n",
+			"app", name, version, "ami", *image.ImageId, *image.CreationDate)
 	}
 }
 
@@ -314,6 +326,8 @@ func (opts *ListOptions) Run(ctx context.Context, args []string) error {
 			return err
 		}
 	}
+
+	ListAMIs()
 
 	return nil
 }

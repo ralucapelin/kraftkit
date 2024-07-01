@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -55,10 +54,10 @@ func CreateQueues() []string {
 			return nil
 		} else {
 			// Print the ARN of the created queue
-			parts := strings.Split(*createQueueOutput.QueueUrl, "/")
-			queueName := parts[len(parts)-1]
-			fmt.Printf("arn:aws:sqs:%s:%s:%s", cfg.Region, *identityOutput.Account, queueName)
-			fmt.Println()
+			//parts := strings.Split(*createQueueOutput.QueueUrl, "/")
+			//queueName := parts[len(parts)-1]
+			//fmt.Printf("arn:aws:sqs:%s:%s:%s", cfg.Region, *identityOutput.Account, queueName)
+			//fmt.Println()
 			queueURLS = append(queueURLS, *createQueueOutput.QueueUrl)
 		}
 	}
@@ -75,7 +74,7 @@ func CreateQueues() []string {
 
 		_, err := sqsClient.GetQueueUrl(context.TODO(), getQueueUrlInput)
 		if err == nil {
-			fmt.Println("Queue is now available")
+			fmt.Println("Queues are now available")
 			return queueURLS
 		}
 
@@ -187,8 +186,9 @@ func ReceiveResult() (string, error) {
 			fmt.Println("No messages received. Retrying")
 		} else {
 			for _, message := range result.Messages {
-				fmt.Printf("Message ID: %s\n", *message.MessageId)
-				fmt.Printf("Message Body: %s\n", *message.Body)
+				//fmt.Printf("Message ID: %s\n", *message.MessageId)
+				//fmt.Printf("Message Body: %s\n", *message.Body)
+				fmt.Println("Result received.")
 				return extractAmiID(*message.Body)
 			}
 		}

@@ -38,7 +38,7 @@ func GetAccountID() string {
 	}
 
 	// Print AWS account ID
-	fmt.Println("AWS Account ID:", *identityOutput.Account)
+	//fmt.Println("AWS Account ID:", *identityOutput.Account)
 	return *identityOutput.Account
 }
 
@@ -147,7 +147,7 @@ func AddPolicies() {
 		return
 	}
 
-	fmt.Println("Policy added to IAM user successfully.")
+	fmt.Println("Successfully added policies to IAM user.")
 	fmt.Println("Waiting for policies to propagate...")
 
 	maxRetries := 10
@@ -369,7 +369,7 @@ func DeleteInstanceProfileAndRole(name string) {
 		fmt.Println("Error listing attached role policies:", err)
 		return
 	}
-	fmt.Printf("poliies: %s\n", policiesOutput.PolicyNames)
+	//fmt.Printf("poliies: %s\n", policiesOutput.PolicyNames)
 
 	// Detach each policy from the IAM role
 	for _, policy := range policiesOutput.PolicyNames {

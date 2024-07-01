@@ -37,7 +37,7 @@ sudo bash -c 'echo ` + *name + ` > /home/ec2-user/image-name'
 sudo bash -c 'curl -o /home/ec2-user/amibuilderd  https://raw.githubusercontent.com/ralucapelin/kraftkit/staging/amibuilder/amibuilderd'
 sudo bash -c 'chmod +x /home/ec2-user/amibuilderd'
 sudo bash -c './home/ec2-user/amibuilderd -results-queue "` + arnPrefix + `Results" -orders-queue "` + arnPrefix + `Orders"'`
-	fmt.Println(`./home/ec2-user/amibuilderd -results-queue "` + arnPrefix + `Results" -orders-queue "` + arnPrefix + `Orders"`)
+	//fmt.Println(`./home/ec2-user/amibuilderd -results-queue "` + arnPrefix + `Results" -orders-queue "` + arnPrefix + `Orders"`)
 	instanceProfile := CreateInstanceProfile(instanceProfileName)
 
 	encodedUserData := base64.StdEncoding.EncodeToString([]byte(userDataScript))
@@ -144,13 +144,12 @@ func DeregisterImageByID(amiID string) []*string {
 		ImageId: aws.String(amiID),
 	}
 
-	result, err := svc.DeregisterImage(context.TODO(), input)
+	_, err = svc.DeregisterImage(context.TODO(), input)
 	if err != nil {
 		fmt.Errorf("failed to deregister image, %v", err)
 	}
 
 	fmt.Printf("Successfully deregistered AMI: %s\n", amiID)
-	fmt.Println(result)
 	return snapshotIDs
 }
 
@@ -165,7 +164,6 @@ func DeleteSnapshots(snapshotIDs []*string) error {
 	// Create an EC2 service client
 	svc := ec2.NewFromConfig(cfg)
 	for _, snapshotID := range snapshotIDs {
-		fmt.Println("id: " + *snapshotID)
 		deleteInput := &ec2.DeleteSnapshotInput{
 			SnapshotId: snapshotID,
 		}
@@ -175,7 +173,7 @@ func DeleteSnapshots(snapshotIDs []*string) error {
 			return fmt.Errorf("failed to delete snapshot %s: %v", *snapshotID, err)
 		}
 
-		fmt.Printf("Successfully deleted snapshot with ID: %s\n", *snapshotID)
+		fmt.Printf("Successfully deleted snapshot with ID %s associated with AMI.\n", *snapshotID)
 	}
 
 	return nil
@@ -192,7 +190,6 @@ func GetAMIIDByName(amiName string) *string {
 		return nil
 	}
 
-	fmt.Println("getting AMI")
 	// Create an EC2 service client
 	svc := ec2.NewFromConfig(cfg)
 

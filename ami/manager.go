@@ -55,7 +55,7 @@ func NewAMIManager(ctx context.Context, opts ...any) (packmanager.PackageManager
 
 // Update implements packmanager.PackageManager
 func (manager *amiManager) Update(ctx context.Context) error {
-	fmt.Println("HERE")
+	//fmt.Println("HERE")
 	//createS3Bucket("kraftkit")
 	//CreateVMImportRole("kraftkit")
 	//time.Sleep(10 * time.Second)
@@ -128,7 +128,7 @@ func getImage(ref string) []MyString {
 		for _, manifest := range indexManifest.Manifests {
 			if manifest.Platform != nil {
 				platformOptions = append(platformOptions, MyString(fmt.Sprintf("OS: %s, Architecture: %s\n", manifest.Platform.OS, manifest.Platform.Architecture)))
-				fmt.Printf("OS: %s, Architecture: %s\n", manifest.Platform.OS, manifest.Platform.Architecture)
+				//fmt.Printf("OS: %s, Architecture: %s\n", manifest.Platform.OS, manifest.Platform.Architecture)
 			} else {
 				fmt.Println("Platform information not available for this manifest")
 			}
@@ -177,14 +177,14 @@ func (manager *amiManager) Pack(ctx context.Context, entity component.Component,
 	}
 
 	var queueURLs = CreateQueues()
-	fmt.Println(queueURLs)
+	//fmt.Println(queueURLs)
 	//time.Sleep(5 * time.Second)
 	popts := packmanager.NewPackOptions()
 	for _, opt := range opts {
 		opt(popts)
 	}
 	name := popts.Name()
-	fmt.Println(name)
+	//fmt.Println(name)
 
 	options = getImage(name)
 
@@ -204,19 +204,21 @@ func (manager *amiManager) Pack(ctx context.Context, entity component.Component,
 	var result, errEC2 = MakeInstance(&name, &value, instanceProfileName)
 	duration := time.Since(startTime)
 	fmt.Printf("The function took %s to complete.\n", duration)
-	fmt.Println(result)
+	//fmt.Println(result)
 	if errEC2 != nil {
 		fmt.Println("Error when launching EC2 instance")
 	}
-	fmt.Println("successfully created instance")
+	fmt.Println("Successfully launched EC2 instance")
 	time.Sleep(10 * time.Second)
-	//	fmt.Println("sending build order...")
+	fmt.Println("Sending build order...")
 	SendBuildOrder(name, os, arch)
-	fmt.Println("building AMI...")
+	fmt.Println("Building AMI...")
 	time.Sleep(40 * time.Second)
 	amiID, _ := ReceiveResult()
 
-	fmt.Printf("AMI ID: %s\n", amiID)
+	fmt.Println("Cleaning up environment...")
+
+	//fmt.Printf("AMI ID: %s\n", amiID)
 
 	time.Sleep(5000 * time.Millisecond)
 	DeleteInstanceProfileAndRole(instanceProfileName)
@@ -227,6 +229,7 @@ func (manager *amiManager) Pack(ctx context.Context, entity component.Component,
 	TerminateInstance(instanceID)
 	duration = time.Since(startTime)
 	fmt.Printf("The function took %s to complete.\n", duration)
+	fmt.Printf("Final result: created AMI with ID %s\n", amiID)
 	return []pack.Package{}, err
 }
 
@@ -365,11 +368,8 @@ func (manager *amiManager) AddSource(ctx context.Context, source string) error {
 func (manager *amiManager) Delete(ctx context.Context, qopts ...packmanager.QueryOption) error {
 	query := packmanager.NewQuery(qopts...)
 
-	fmt.Println(query.Name())
 	var snapshots = DeregisterImageByName(query.Name())
-	fmt.Println("Deregistered ami successfully")
 	DeleteSnapshots(snapshots)
-	fmt.Println("Deleted snapshots  successfully")
 
 	return nil
 }
